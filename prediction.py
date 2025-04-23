@@ -8,3 +8,6 @@ Instructions
     4. Train the model classes on the training set.
     5. Test the trained model on the the training set, testing set and the entire set.
 '''
+'''
+SVM和xgboost优先
+'''
