@@ -71,13 +71,14 @@ class DataLoader:
         data.to_csv(file_path, index=False)
         return data
 
-    def preprocess_data_svm(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+    def preprocess_data_svm(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         '''
         预处理数据
         1. 处理缺失值
         2. 处理非数值
         3. 进一步处理
         '''
+
 
         # 处理缺失值->直接删
         df.replace(' ?', pd.NA, inplace=True)
@@ -96,7 +97,7 @@ class DataLoader:
             df[col] = df[col].map(freq)
         
         # 分离标签
-        y = df['income'].apply(lambda x: 1 if x == '>50K' else 0)
+        y = df['income'].str.strip().map({'>50K':1, '<=50K':0})
         X = df.drop('income', axis=1)
         
         # 标准化
@@ -109,7 +110,8 @@ class DataLoader:
 
 if __name__ == "__main__":
     data_loader = DataLoader()
-    df = data_loader.load_data('raw/adult.data', 'data/adult.csv')
+    df = data_loader.load_data('raw/adult.data')
     df,y = data_loader.preprocess_data_svm(df)
-    df=data_loader.save_data(df, 'data/adult_preprocessed.csv')
+    df=data_loader.save_data(df, 'data/train_preprocessed.csv')
     print(df.head())
+    print(y.head())
