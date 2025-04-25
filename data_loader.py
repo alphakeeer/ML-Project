@@ -34,11 +34,33 @@ sex: 2
 native-country: 41
 '''
 
+'''
+SVM适合数据：
+1. 高纬稠密特征
+2. 线性可分
+3. 需要归一化/标准化
 
-import pandas as pd
-import numpy as np
+低纬度——onehot
+高纬度——降维/特征选择
+'''
+
+'''
+xgboost适合数据：
+1. 数值/稀疏混合
+2. 非线性关系/交互
+3. 允许部分缺失
+
+缺失值标记——NaN
+类别特征——低基类onehot，高基类目标编码
+'''
+
+
 from typing import Tuple
-from sklearn.preprocessing import StandardScaler
+import category_encoders as ce
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+import numpy as np
+
 
 class DataLoader:
     def __init__(self):
@@ -71,14 +93,21 @@ class DataLoader:
         data.to_csv(file_path, index=False)
         return data
 
-    def preprocess_data_svm(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+    def preprocess_data(self, df: pd.DataFrame, 
+                        low_card_method: str = "onehot",
+                        high_card_mehtod:str="frequency",
+                        if_standard : bool=True) -> Tuple[pd.DataFrame, pd.Series]:
         '''
         预处理数据
         1. 处理缺失值
         2. 处理非数值
         3. 进一步处理
+        
+        df: pd.DataFrame, 原始数据
+        low_card_method: str, 低基数特征处理方法, onehot/label/binary
+        high_card_mehtod: str, 高基数特征处理方法, frequency/target
+        return: Tuple[pd.DataFrame, pd.Series], 预处理后的数据和标签
         '''
-
 
         # 处理缺失值->直接删
         df.replace(' ?', pd.NA, inplace=True)
@@ -88,22 +117,49 @@ class DataLoader:
         low_card = ['sex', 'relationship', 'race', 'marital-status']
         high_card = ['workclass', 'education', 'occupation', 'native-country']
 
-        # 低基数->onehont
-        df = pd.get_dummies(df, columns=low_card, drop_first=True)
+        if low_card_method == "onehot":
+            # 低基数->onehot
+            df = pd.get_dummies(df, columns=low_card, drop_first=True)
+        elif low_card_method == "label":
+            # 低基数->label encoding
+            for col in low_card:
+                le = LabelEncoder()
+                df[col] = le.fit_transform(df[col].astype(str))
+        elif low_card_method == "binary":
+            # 低基数->Binary encoding
+            encoder = ce.BinaryEncoder(cols=low_card)
+            df = encoder.fit_transform(df)
+        else:
+            raise ValueError("low_card_method must be onehot, label or binary")
 
-        # 高基数->频率编码
-        for col in high_card:
-            freq = df[col].value_counts(normalize=True)
-            df[col] = df[col].map(freq)
-        
+        if high_card_mehtod == "frequency":
+            # 高基数->频率编码
+            for col in high_card:
+                freq = df[col].value_counts(normalize=True)
+                df[col] = df[col].map(freq)
+        elif high_card_mehtod == "target":
+            # 高基数->目标编码
+            for col in high_card:
+                freq = df.groupby(col)['income'].value_counts(normalize=True).unstack().fillna(0)
+                freq = freq.div(freq.sum(axis=1), axis=0)
+                df[col] = df[col].map(freq[1])
+        elif high_card_mehtod == "hashing":
+            # 高基数->Hashing encoding
+            encoder = ce.HashingEncoder(cols=high_card, n_components=8)
+            df = encoder.fit_transform(df)        
+
+        else:
+            raise ValueError("high_card_mehtod must be frequency or target")
         # 分离标签
-        y = df['income'].str.strip().map({'>50K':1, '<=50K':0})
+        y = df['income'].str.strip().map({'>50K': 1, '<=50K': 0})
         X = df.drop('income', axis=1)
-        
-        # 标准化
-        scaler = StandardScaler()
-        X_scaler = scaler.fit_transform(X)
-        X_df=pd.DataFrame(X_scaler, columns=X.columns,index=X.index)
+
+        if if_standard:
+            # 标准化
+            scaler = StandardScaler()
+            X_scaler = scaler.fit_transform(X)
+            X_df = pd.DataFrame(X_scaler, columns=X.columns, index=X.index)
+
 
         return X_df, y
 
@@ -111,7 +167,7 @@ class DataLoader:
 if __name__ == "__main__":
     data_loader = DataLoader()
     df = data_loader.load_data('raw/adult.data')
-    df,y = data_loader.preprocess_data_svm(df)
-    df=data_loader.save_data(df, 'data/train_preprocessed.csv')
+    df, y = data_loader.preprocess_data(df)
+    df = data_loader.save_data(df, 'data/train_preprocessed.csv')
     print(df.head())
     print(y.head())
