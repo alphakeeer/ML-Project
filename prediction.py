@@ -27,6 +27,7 @@ class Classifier:
         self.dataloader = DataLoader()
         self.model = model
         self.random_state = random_state
+        self.results = None
 
     def set_model(self, model):
         """
@@ -49,6 +50,12 @@ class Classifier:
         训练 SVM 模型
         """
         self.model.fit(self.train_x, self.train_y)
+        
+    def predict(self, x):
+        """
+        预测
+        """
+        return self.model.predict(x)
 
     def evaluate(self):
         """
@@ -57,6 +64,9 @@ class Classifier:
         self.train_y_pred = self.model.predict(self.train_x)
         self.test_y_pred = self.model.predict(self.test_x)
         self.total_y_pred = self.model.predict(self.x)
+        
+
+        
 
         # print("accuracy on train set: ", accuracy_score(
         #     self.train_y, self.train_y_pred))
