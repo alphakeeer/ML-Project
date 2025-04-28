@@ -16,6 +16,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
 from data_loader import DataLoader
 from evaluation import Evaluation
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import uniform,randint
 
 
 class Classifier:
@@ -67,7 +69,71 @@ class Classifier:
             self.test_y, self.test_y_pred))
         print("accuracy on total set: ",
               accuracy_score(self.y, self.total_y_pred))
+        
+    def random_search(self, param_grid, n_iter=5):
+        """
+        随机搜索超参数
+        """
+        # 定义随机搜索
+        search = RandomizedSearchCV(
+            self.model,
+            param_distributions=param_grid,
+            n_iter=n_iter,
+            cv=2,
+            random_state=self.random_state,
+            n_jobs=-1,
+            verbose=2,
+        )
+        search.fit(self.train_x, self.train_y)
+        print("Best parameters found: ", search.best_params_)
+        return search.best_estimator_,search.best_params_
 
+
+
+
+# 1. SVM (支持向量机)
+param_grid_svm = {
+    # 惯用对数空间，尝试从 0.001 到 100 的 C
+    'C': [0.001, 0.01, 0.1, 1, 10, 100],
+    # 核函数：线性、RBF、多项式
+    'kernel': ['linear', 'rbf', 'poly'],
+    # 只有在 kernel='rbf' 或 'poly' 时才生效
+    'gamma': [1e-3, 1e-2, 1e-1, 1, 10],
+    # 多项式核时的阶数
+    'degree': [2, 3, 4]
+}
+
+# 2. Random Forest（随机森林）
+param_grid_rf = {
+    # 树的数量
+    'n_estimators': [50, 100, 200, 500],
+    # 最大深度
+    'max_depth': [None, 5, 10, 20, 50],
+    # 每次分裂所需的最小样本数
+    'min_samples_split': [2, 5, 10],
+    # 叶子节点最小样本数
+    'min_samples_leaf': [1, 2, 4],
+    # 考虑特征的最大数量（比例或绝对值）
+    'max_features': ['auto', 'sqrt', 0.2, 0.5]
+}
+
+# 3. XGBoost（二分类）
+param_grid_xgb = {
+    # 学习率
+    'eta': [0.01, 0.05, 0.1, 0.2],
+    # 树的最大深度
+    'max_depth': [3, 5, 7, 10],
+    # 样本采样比例
+    'subsample': [0.6, 0.8, 1.0],
+    # 列采样比例
+    'colsample_bytree': [0.6, 0.8, 1.0],
+    # 树间最小损失减少，用于控制过拟合
+    'gamma': [0, 0.1, 0.2, 0.5],
+    # L1 正则化项
+    'alpha': [0, 0.1, 1, 10],
+    # L2 正则化项
+    'lambda': [1, 2, 5, 10]
+}
 
 # 定义待测试的模型及标题
 models = [
@@ -85,26 +151,63 @@ models = [
     ))
 ]
 
-evaluation = Evaluation()
-# 使用SVM创建初始Classifier，后续通过set_model更换
-classifier = Classifier(model=models[0][1], random_state=42)
-classifier.load_and_preprocess_data('raw/adult.data')
+def main_train_test():
+    evaluation = Evaluation()
+    # 使用SVM创建初始Classifier，后续通过set_model更换
+    classifier = Classifier(model=models[0][1], random_state=42)
+    classifier.load_and_preprocess_data('raw/adult.data')
 
-# 遍历模型列表，依次训练、评估并绘制决策边界
-for title, model in models:
-    classifier.set_model(model)
+    # 遍历模型列表，依次训练、评估并绘制决策边界
+    for title, model in models:
+        classifier.set_model(model)
+        classifier.train()
+        print(f"=== {title} Evaluation ===")
+        evaluation.evaluate_model(
+            classifier.model,
+            classifier.train_x,
+            classifier.train_y,
+            classifier.test_x,
+            classifier.test_y
+        )
+        evaluation.plot_decision_boundary(
+            classifier.model,
+            classifier.train_x,
+            classifier.train_y,
+            title=f'Decision Boundary of {title}'
+        )
+
+def main_random_search():
+    # 使用SVM创建初始Classifier，后续通过set_model更换
+    classifier = Classifier(model=models[0][1], random_state=42)
+    classifier.load_and_preprocess_data('raw/adult.data')
+
+    # 随机搜索超参数
+    # SVM
+    best_model,best_param = classifier.random_search(param_grid_svm, n_iter=3)
+    classifier.set_model(best_model)
     classifier.train()
-    print(f"=== {title} Evaluation ===")
-    evaluation.evaluate_model(
-        classifier.model,
-        classifier.train_x,
-        classifier.train_y,
-        classifier.test_x,
-        classifier.test_y
-    )
-    evaluation.plot_decision_boundary(
-        classifier.model,
-        classifier.train_x,
-        classifier.train_y,
-        title=f'Decision Boundary of {title}'
-    )
+    print("=== Best SVM Model Evaluation ===")
+    print("Best parameters: ", best_param)
+    classifier.evaluate()
+    
+    # 随机森林
+    classifier.set_model(RandomForestClassifier(random_state=42))
+    best_model,best_param = classifier.random_search(param_grid_rf, n_iter=3)
+    classifier.set_model(best_model)
+    classifier.train()
+    print("=== Best Random Forest Model Evaluation ===")
+    print("Best parameters: ", best_param)
+    classifier.evaluate()
+    
+    # XGBoost   
+    classifier.set_model(XGBClassifier(random_state=42))
+    best_model,best_param = classifier.random_search(param_grid_xgb, n_iter=3)
+    classifier.set_model(best_model)
+    classifier.train()
+    print("=== Best XGBoost Model Evaluation ===")
+    print("Best parameters: ", best_param)
+    classifier.evaluate()
+
+if __name__ == "__main__":
+    # main_train_test()
+    main_random_search()
