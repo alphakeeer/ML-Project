@@ -15,11 +15,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
 from data_loader import DataLoader
-from sklearn.metrics import confusion_matrix
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-import numpy as np
+from evaluation import Evaluation
 
 
 class Classifier:
@@ -50,7 +46,7 @@ class Classifier:
         训练 SVM 模型
         """
         self.model.fit(self.train_x, self.train_y)
-        
+
     def predict(self, x):
         """
         预测
@@ -64,105 +60,51 @@ class Classifier:
         self.train_y_pred = self.model.predict(self.train_x)
         self.test_y_pred = self.model.predict(self.test_x)
         self.total_y_pred = self.model.predict(self.x)
-        
 
-        
-
-        # print("accuracy on train set: ", accuracy_score(
-        #     self.train_y, self.train_y_pred))
-        # print("accuracy on test set: ", accuracy_score(
-        #     self.test_y, self.test_y_pred))
-        # print("accuracy on total set: ",
-        #       accuracy_score(self.y, self.total_y_pred))
-        # print("classification report on train set: ")
-        # print(classification_report(self.train_y, self.train_y_pred))
-        # print("classification report on test set: ")
-        # print(classification_report(self.test_y, self.test_y_pred))
-        # print("classification report on total set: ")
-        # print(classification_report(self.y, self.total_y_pred))
-        # print("confusion matrix on train set: ")
-        # print(confusion_matrix(self.train_y, self.train_y_pred))
-        # print("confusion matrix on test set: ")
-        # print(confusion_matrix(self.test_y, self.test_y_pred))
-        # print("confusion matrix on total set: ")
-        # print(confusion_matrix(self.y, self.total_y_pred))
-
-    def plot_confusion_matrix(self, y_true, y_pred, title='Confusion Matrix'):
-        """
-        绘制混淆矩阵
-        """
-        cm = confusion_matrix(y_true, y_pred)
-        disp = ConfusionMatrixDisplay(cm)
-        disp.plot(cmap=plt.cm.Blues)
-        plt.title(title)
-        plt.show()
-
-    def plot_decision_boundary(self, features, labels, title):
-        """
-        绘制决策边界
-        """
-        # 使用 PCA 降维到 2D
-        pca = PCA(n_components=2, random_state=self.random_state)
-        X2 = pca.fit_transform(features)
-        x_min, x_max = X2[:, 0].min() - 1, X2[:, 0].max() + 1
-        y_min, y_max = X2[:, 1].min() - 1, X2[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200),
-                             np.linspace(y_min, y_max, 200))
-        Z = self.model.predict(pca.inverse_transform(
-            np.c_[xx.ravel(), yy.ravel()]))
-        Z = Z.reshape(xx.shape)
-        plt.contourf(xx, yy, Z, alpha=0.3)
-        plt.scatter(X2[:, 0], X2[:, 1], c=labels, edgecolor='k')
-        plt.title(title)
-        plt.xlabel("PC1")
-        plt.ylabel("PC2")
-        plt.show()
+        print("accuracy on train set: ", accuracy_score(
+            self.train_y, self.train_y_pred))
+        print("accuracy on test set: ", accuracy_score(
+            self.test_y, self.test_y_pred))
+        print("accuracy on total set: ",
+              accuracy_score(self.y, self.total_y_pred))
 
 
-# 初始化 XGBoost 分类器
-xgb_model = XGBClassifier(
-    objective='binary:logistic',
-    eval_metric='logloss',
-    eta=0.1,
-    max_depth=6,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    random_state=42
-)
+# 定义待测试的模型及标题
+models = [
+    ("SVM", SVC(kernel='linear', random_state=42)),
+    ("Random Forest", RandomForestClassifier(
+        n_estimators=100, max_depth=6, random_state=42)),
+    ("XGBoost", XGBClassifier(
+        objective='binary:logistic',
+        eval_metric='logloss',
+        eta=0.1,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42
+    ))
+]
 
-# 初始化随机森林分类器
-rf_model = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=6,
-    random_state=42
-)
-
-# 初始化 SVM 分类器
-svm_model = SVC(kernel='linear', random_state=42)
-
-
-classifier = Classifier(svm_model, random_state=42)
+evaluation = Evaluation()
+# 使用SVM创建初始Classifier，后续通过set_model更换
+classifier = Classifier(model=models[0][1], random_state=42)
 classifier.load_and_preprocess_data('raw/adult.data')
-classifier.train()
-classifier.evaluate()
-classifier.plot_confusion_matrix(
-    classifier.train_y, classifier.train_y_pred, title='SVM Train Confusion Matrix')
-classifier.plot_decision_boundary(
-    classifier.train_x, classifier.train_y, title='SVM Decision Boundary')
 
-classifier.set_model(rf_model)
-classifier.train()
-classifier.evaluate()
-classifier.plot_confusion_matrix(
-    classifier.train_y, classifier.train_y_pred, title='Random Forest Train Confusion Matrix')
-classifier.plot_decision_boundary(
-    classifier.train_x, classifier.train_y, title='Random Forest Decision Boundary')
-
-
-classifier.set_model(xgb_model)
-classifier.train()
-classifier.evaluate()
-classifier.plot_confusion_matrix(
-    classifier.train_y, classifier.train_y_pred, title='XGBoost Train Confusion Matrix')
-classifier.plot_decision_boundary(
-    classifier.train_x, classifier.train_y, title='XGBoost Decision Boundary')
+# 遍历模型列表，依次训练、评估并绘制决策边界
+for title, model in models:
+    classifier.set_model(model)
+    classifier.train()
+    print(f"=== {title} Evaluation ===")
+    evaluation.evaluate_model(
+        classifier.model,
+        classifier.train_x,
+        classifier.train_y,
+        classifier.test_x,
+        classifier.test_y
+    )
+    evaluation.plot_decision_boundary(
+        classifier.model,
+        classifier.train_x,
+        classifier.train_y,
+        title=f'Decision Boundary of {title}'
+    )
