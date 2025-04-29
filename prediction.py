@@ -10,17 +10,20 @@ Instructions
 '''
 
 from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
 from data_loader import DataLoader
 from evaluation import Evaluation
 from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import uniform,randint
+from scipy.stats import uniform, randint
 
 
 class Classifier:
@@ -72,7 +75,7 @@ class Classifier:
             self.test_y, self.test_y_pred))
         print("accuracy on total set: ",
               accuracy_score(self.y, self.total_y_pred))
-        
+
     def random_search(self, param_grid, n_iter=5):
         """
         随机搜索超参数
@@ -89,9 +92,7 @@ class Classifier:
         )
         search.fit(self.train_x, self.train_y)
         print("Best parameters found: ", search.best_params_)
-        return search.best_estimator_,search.best_params_
-
-
+        return search.best_estimator_, search.best_params_
 
 
 # 1. SVM (支持向量机)
@@ -144,7 +145,7 @@ models = [
         max_iter=1000, random_state=42)),
     ("Decision Tree", DecisionTreeClassifier(
         max_depth=6, random_state=42)),
-    ("SVM", SVC(kernel='linear', random_state=42)),
+    # ("SVM", SVC(kernel='linear', random_state=42)),
     ("Random Forest", RandomForestClassifier(
         n_estimators=100, max_depth=6, random_state=42)),
     ("XGBoost", XGBClassifier(
@@ -157,7 +158,35 @@ models = [
         random_state=42
     )),
     ("KNN", KNeighborsClassifier(n_neighbors=5,metric='minkowski',p=2)),
+    ("MLP",MLPClassifier(
+        hidden_layer_sizes=(100,),  # 隐藏层大小（100 个神经元）
+        activation='relu',         # 激活函数（默认 relu）
+        solver='adam',             # 优化器（默认 adam）
+        max_iter=300,              # 最大迭代次数
+        random_state=42
+    )),
+    ("LGBM", LGBMClassifier(
+        objective='binary',
+        metric='binary_logloss',
+        learning_rate=0.1,
+        max_depth=6,
+        num_leaves=31,
+        min_child_samples=10,
+        min_split_gain=0.01,
+        max_bin=128,
+        class_weight='balanced',
+        random_state=42
+    )),
+    ("CatBoost", CatBoostClassifier(
+        iterations=1000,
+        depth=6,
+        learning_rate=0.1,
+        loss_function='Logloss',
+        random_seed=42,
+        verbose=0
+    ))
 ]
+
 
 def main_train_test():
     evaluation = Evaluation()
@@ -184,6 +213,7 @@ def main_train_test():
         #     title=f'Decision Boundary of {title}'
         # )
 
+
 def main_random_search():
     # 使用SVM创建初始Classifier，后续通过set_model更换
     classifier = Classifier(model=models[0][1], random_state=42)
@@ -191,30 +221,31 @@ def main_random_search():
 
     # 随机搜索超参数
     # SVM
-    best_model,best_param = classifier.random_search(param_grid_svm, n_iter=3)
+    best_model, best_param = classifier.random_search(param_grid_svm, n_iter=3)
     classifier.set_model(best_model)
     classifier.train()
     print("=== Best SVM Model Evaluation ===")
     print("Best parameters: ", best_param)
     classifier.evaluate()
-    
+
     # 随机森林
     classifier.set_model(RandomForestClassifier(random_state=42))
-    best_model,best_param = classifier.random_search(param_grid_rf, n_iter=3)
+    best_model, best_param = classifier.random_search(param_grid_rf, n_iter=3)
     classifier.set_model(best_model)
     classifier.train()
     print("=== Best Random Forest Model Evaluation ===")
     print("Best parameters: ", best_param)
     classifier.evaluate()
-    
-    # XGBoost   
+
+    # XGBoost
     classifier.set_model(XGBClassifier(random_state=42))
-    best_model,best_param = classifier.random_search(param_grid_xgb, n_iter=3)
+    best_model, best_param = classifier.random_search(param_grid_xgb, n_iter=3)
     classifier.set_model(best_model)
     classifier.train()
     print("=== Best XGBoost Model Evaluation ===")
     print("Best parameters: ", best_param)
     classifier.evaluate()
+
 
 if __name__ == "__main__":
     # main_train_test()
