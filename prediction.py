@@ -12,18 +12,18 @@ Instructions
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
+from sklearn.metrics import accuracy_score
 from data_loader import DataLoader
 from evaluation import Evaluation
 from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import uniform, randint
+import time
 
 
 class Classifier:
@@ -95,32 +95,6 @@ class Classifier:
         return search.best_estimator_, search.best_params_
 
 
-# 1. SVM (支持向量机)
-param_grid_svm = {
-    # 惯用对数空间，尝试从 0.001 到 100 的 C
-    'C': [0.001, 0.01, 0.1, 1, 10, 100],
-    # 核函数：线性、RBF、多项式
-    'kernel': ['linear', 'rbf', 'poly'],
-    # 只有在 kernel='rbf' 或 'poly' 时才生效
-    'gamma': [1e-3, 1e-2, 1e-1, 1, 10],
-    # 多项式核时的阶数
-    'degree': [2, 3, 4]
-}
-
-# 2. Random Forest（随机森林）
-param_grid_rf = {
-    # 树的数量
-    'n_estimators': [50, 100, 200, 500],
-    # 最大深度
-    'max_depth': [None, 5, 10, 20, 50],
-    # 每次分裂所需的最小样本数
-    'min_samples_split': [2, 5, 10],
-    # 叶子节点最小样本数
-    'min_samples_leaf': [1, 2, 4],
-    # 考虑特征的最大数量（比例或绝对值）
-    'max_features': ['auto', 'sqrt', 0.2, 0.5]
-}
-
 # 3. XGBoost（二分类）
 param_grid_xgb = {
     # 学习率
@@ -141,13 +115,13 @@ param_grid_xgb = {
 
 # 定义待测试的模型及标题
 models = [
-    ("Logistic Regression", LogisticRegression(
-        max_iter=1000, random_state=42)),
-    ("Decision Tree", DecisionTreeClassifier(
-        max_depth=6, random_state=42)),
+    # ("Logistic Regression", LogisticRegression(
+    #     max_iter=1000, random_state=42)),
+    # ("Decision Tree", DecisionTreeClassifier(
+    #     max_depth=6, random_state=42)),
     # ("SVM", SVC(kernel='linear', random_state=42)),
-    ("Random Forest", RandomForestClassifier(
-        n_estimators=100, max_depth=6, random_state=42)),
+    # ("Random Forest", RandomForestClassifier(
+    #     n_estimators=100, max_depth=6, random_state=42)),
     ("XGBoost", XGBClassifier(
         objective='binary:logistic',
         eval_metric='logloss',
@@ -157,29 +131,30 @@ models = [
         colsample_bytree=0.8,
         random_state=42
     )),
-    ("KNN", KNeighborsClassifier(n_neighbors=5,metric='minkowski',p=2)),
-    ("MLP",MLPClassifier(
+    # ("KNN", KNeighborsClassifier(n_neighbors=5,metric='minkowski',p=2)),
+    ("MLP", MLPClassifier(
         hidden_layer_sizes=(100,),  # 隐藏层大小（100 个神经元）
         activation='relu',         # 激活函数（默认 relu）
         solver='adam',             # 优化器（默认 adam）
         max_iter=300,              # 最大迭代次数
         random_state=42
     )),
-    ("LGBM", LGBMClassifier(
-        objective='binary',
-        metric='binary_logloss',
-        learning_rate=0.1,
-        max_depth=6,
-        num_leaves=31,
-        min_child_samples=10,
-        min_split_gain=0.01,
-        max_bin=128,
-        class_weight='balanced',
-        random_state=42
-    )),
+    # ("LGBM", LGBMClassifier(
+    #     objective='binary',
+    #     metric='binary_logloss',
+    #     learning_rate=0.1,
+    #     max_depth=6,
+    #     num_leaves=31,
+    #     min_child_samples=10,
+    #     min_split_gain=0.01,
+    #     max_bin=128,
+    #     class_weight='balanced',
+    #     random_state=42
+    # )),
     ("CatBoost", CatBoostClassifier(
         iterations=1000,
         depth=6,
+
         learning_rate=0.1,
         loss_function='Logloss',
         random_seed=42,
@@ -190,15 +165,17 @@ models = [
 
 def main_train_test():
     evaluation = Evaluation()
-    # 使用SVM创建初始Classifier，后续通过set_model更换
+    # 使用第一个模型初始化 Classifier
     classifier = Classifier(model=models[0][1], random_state=42)
     classifier.load_and_preprocess_data('raw/adult.data')
 
-    # 遍历模型列表，依次训练、评估并绘制决策边界
+    # 遍历模型列表，依次训练、评估
     for title, model in models:
-        classifier.set_model(model)
-        classifier.train()
         print(f"=== {title} Evaluation ===")
+        classifier.set_model(model)
+        start_time = time.time()
+        classifier.train()
+        end_time = time.time()
         evaluation.evaluate_model(
             classifier.model,
             classifier.train_x,
@@ -206,36 +183,30 @@ def main_train_test():
             classifier.test_x,
             classifier.test_y
         )
-        # evaluation.plot_decision_boundary(
-        #     classifier.model,
-        #     classifier.train_x,
-        #     classifier.train_y,
-        #     title=f'Decision Boundary of {title}'
-        # )
+        print(f"Training time: {end_time - start_time:.2f} seconds")
+
+        # print("=== Cross Validation ===")
+        # start_time = time.time()
+        # try:
+        #     # 确保模型兼容 cross_val_score
+        #     if hasattr(model, "fit") and hasattr(model, "predict"):
+        #         scores = cross_val_score(
+        #             classifier.model, classifier.x, classifier.y, cv=5
+        #         )
+        #         print(f"Cross-validation scores: {scores}")
+        #         print(f"Mean cross-validation score: {scores.mean():.4f}")
+        #     else:
+        #         print(f"{title} is not compatible with cross_val_score.")
+        # except Exception as e:
+        #     print(f"Error during cross-validation for {title}: {e}")
+        # end_time = time.time()
+        # print(f"Cross-validation time: {end_time - start_time:.2f} seconds")
 
 
 def main_random_search():
     # 使用SVM创建初始Classifier，后续通过set_model更换
     classifier = Classifier(model=models[0][1], random_state=42)
     classifier.load_and_preprocess_data('raw/adult.data')
-
-    # 随机搜索超参数
-    # SVM
-    best_model, best_param = classifier.random_search(param_grid_svm, n_iter=3)
-    classifier.set_model(best_model)
-    classifier.train()
-    print("=== Best SVM Model Evaluation ===")
-    print("Best parameters: ", best_param)
-    classifier.evaluate()
-
-    # 随机森林
-    classifier.set_model(RandomForestClassifier(random_state=42))
-    best_model, best_param = classifier.random_search(param_grid_rf, n_iter=3)
-    classifier.set_model(best_model)
-    classifier.train()
-    print("=== Best Random Forest Model Evaluation ===")
-    print("Best parameters: ", best_param)
-    classifier.evaluate()
 
     # XGBoost
     classifier.set_model(XGBClassifier(random_state=42))
