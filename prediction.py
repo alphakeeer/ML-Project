@@ -15,6 +15,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
 from data_loader import DataLoader
 from evaluation import Evaluation
@@ -154,7 +155,8 @@ models = [
         subsample=0.8,
         colsample_bytree=0.8,
         random_state=42
-    ))
+    )),
+    ("KNN", KNeighborsClassifier(n_neighbors=5,metric='minkowski',p=2)),
 ]
 
 def main_train_test():
