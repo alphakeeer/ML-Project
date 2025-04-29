@@ -55,11 +55,12 @@ xgboost适合数据：
 '''
 
 
+import os
+from typing import Tuple
+import category_encoders as ce
+import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 import numpy as np
-import pandas as pd
-import category_encoders as ce
-from typing import Tuple
 
 
 class DataLoader:
@@ -68,18 +69,33 @@ class DataLoader:
 
     def load_data(self, file_path: str, output_file_path=None) -> pd.DataFrame:
         '''
-        读取csv或文本文件
+        读取csv或文本文件，支持单个文件或文件夹
 
-        file_path: str, 文件路径
+        file_path: str, 文件路径或文件夹路径
         output_file_path: str, 输出文件路径, 如果不为None, 则将数据转为csv保存到该路径
         '''
-        df = pd.read_csv(file_path, header=None)
+        if os.path.isfile(file_path):
+            # 如果是文件，直接读取
+            df = pd.read_csv(file_path, header=None)
+        elif os.path.isdir(file_path):
+            # 如果是文件夹，读取所有文件并整合
+            all_files = [os.path.join(file_path, f) for f in os.listdir(
+                file_path)]
+            df_list = [pd.read_csv(f, header=None) for f in all_files]
+            df = pd.concat(df_list, ignore_index=True)
+        else:
+            raise ValueError(f"{file_path} 不是有效的文件或文件夹路径")
+
+        # 如果不是 CSV 文件，添加列名
         if not file_path.endswith('.csv'):
             df.columns = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status',
                           'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss',
                           'hours-per-week', 'native-country', 'income']
+
+        # 如果指定了输出路径，保存为 CSV 文件
         if output_file_path:
             df.to_csv(output_file_path, index=False)
+
         return df
 
     def save_data(self, data, file_path: str):
@@ -218,7 +234,7 @@ class DataLoader:
 
 if __name__ == "__main__":
     data_loader = DataLoader()
-    df = data_loader.load_data('raw/adult.data')
+    df = data_loader.load_data('raw')
     # data_loader.check_missing_values(df)
     df, y = data_loader.preprocess_data(df)
     df = data_loader.save_data(df, 'data/train_preprocessed.csv')
