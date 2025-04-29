@@ -113,6 +113,6 @@ class Evaluation:
         #     self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
 
 
-        # 打印分类报告
-        self.classification_report(y_train, y_train_pred)
-        self.classification_report(y_test, y_test_pred)
+        # # 打印分类报告
+        # self.classification_report(y_train, y_train_pred)
+        # self.classification_report(y_test, y_test_pred)
