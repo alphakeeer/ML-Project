@@ -11,6 +11,8 @@ Instructions
 
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay, confusion_matrix
@@ -137,6 +139,10 @@ param_grid_xgb = {
 
 # 定义待测试的模型及标题
 models = [
+    ("Logistic Regression", LogisticRegression(
+        max_iter=1000, random_state=42)),
+    ("Decision Tree", DecisionTreeClassifier(
+        max_depth=6, random_state=42)),
     ("SVM", SVC(kernel='linear', random_state=42)),
     ("Random Forest", RandomForestClassifier(
         n_estimators=100, max_depth=6, random_state=42)),
@@ -169,12 +175,12 @@ def main_train_test():
             classifier.test_x,
             classifier.test_y
         )
-        evaluation.plot_decision_boundary(
-            classifier.model,
-            classifier.train_x,
-            classifier.train_y,
-            title=f'Decision Boundary of {title}'
-        )
+        # evaluation.plot_decision_boundary(
+        #     classifier.model,
+        #     classifier.train_x,
+        #     classifier.train_y,
+        #     title=f'Decision Boundary of {title}'
+        # )
 
 def main_random_search():
     # 使用SVM创建初始Classifier，后续通过set_model更换
@@ -210,4 +216,4 @@ def main_random_search():
 
 if __name__ == "__main__":
     # main_train_test()
-    main_random_search()
+    main_train_test()
