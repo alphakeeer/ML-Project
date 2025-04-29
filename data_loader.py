@@ -79,8 +79,8 @@ class DataLoader:
             df = pd.read_csv(file_path, header=None)
         elif os.path.isdir(file_path):
             # 如果是文件夹，读取所有文件并整合
-            all_files = [os.path.join(file_path, f) for f in os.listdir(
-                file_path)]
+            all_files = [os.path.join(file_path, f)
+                         for f in os.listdir(file_path)]
             df_list = [pd.read_csv(f, header=None) for f in all_files]
             df = pd.concat(df_list, ignore_index=True)
         else:
@@ -109,11 +109,38 @@ class DataLoader:
         data.to_csv(file_path, index=False)
         return data
 
+    def data_noise(self, df: pd.DataFrame, noise_level: float = 0.05) -> pd.DataFrame:
+        """
+        增加高斯噪音、随机clip和mask
+        df: pd.DataFrame, 输入数据
+        noise_level: float, 噪声强度
+        return: pd.DataFrame, 添加噪声后的数据
+        """
+        # 增加高斯噪声
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] += np.random.normal(0, noise_level *
+                                        df[col].std(), size=df[col].shape)
+
+        # 随机clip
+        for col in numeric_cols:
+            lower_bound = df[col].quantile(0.01)
+            upper_bound = df[col].quantile(0.99)
+            df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
+
+        # # 随机mask
+        # mask_prob = 0.01  # 1% 的概率将值设置为 NaN
+        # mask = np.random.rand(*df.shape) < mask_prob
+        # df = df.mask(mask)
+
+        return df
+
     def preprocess_data(self, df: pd.DataFrame,
-                        missing_value_method: str = "drop",
+                        missing_value_method: str = "impute",
                         low_card_method: str = "onehot",
-                        high_card_mehtod: str = "frequency",
-                        if_standard: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
+                        high_card_mehtod: str = "hashing",
+                        if_standard: bool = True,
+                        noise: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         '''
         预处理数据
         1. 处理缺失值
@@ -123,7 +150,7 @@ class DataLoader:
         df: pd.DataFrame, 原始数据
         missing_value_method: str, 缺失值处理方法, drop/impute
         low_card_method: str, 低基数特征处理方法, onehot/label/binary
-        high_card_mehtod: str, 高基数特征处理方法, frequency/target
+        high_card_mehtod: str, 高基数特征处理方法, frequency/target/hashing
         return: Tuple[pd.DataFrame, pd.Series], 预处理后的数据和标签
         '''
 
@@ -171,10 +198,17 @@ class DataLoader:
         elif high_card_mehtod == "target":
             # 高基数->目标编码
             for col in high_card:
+                # 确保 'income' 列的值被正确处理
+                df['income'] = df['income'].str.strip()  # 去除多余空格
+                # 计算目标编码
                 freq = df.groupby(col)['income'].value_counts(
                     normalize=True).unstack().fillna(0)
-                freq = freq.div(freq.sum(axis=1), axis=0)
-                df[col] = df[col].map(freq[1])
+                # 检查列名是否为 '>50K' 或其他值
+                if '>50K' in freq.columns:
+                    df[col] = df[col].map(freq['>50K'])
+                else:
+                    raise ValueError(
+                        f"Unexpected income column names in target encoding: {freq.columns}")
         elif high_card_mehtod == "hashing":
             # 高基数->Hashing encoding
             encoder = ce.HashingEncoder(cols=high_card, n_components=8)
@@ -190,9 +224,11 @@ class DataLoader:
             # 标准化
             scaler = StandardScaler()
             X_scaler = scaler.fit_transform(X)
-            X_df = pd.DataFrame(X_scaler, columns=X.columns, index=X.index)
+            X = pd.DataFrame(X_scaler, columns=X.columns, index=X.index)
 
-        return X_df, y
+        if noise:
+            X = self.data_noise(X, 0.01)
+        return X, y
 
     def check_missing_values(self, df: pd.DataFrame):
         '''
