@@ -55,12 +55,12 @@ xgboost适合数据：
 '''
 
 
-import os
 from typing import Tuple
+import os
 import category_encoders as ce
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 
 class DataLoader:
@@ -109,7 +109,7 @@ class DataLoader:
         data.to_csv(file_path, index=False)
         return data
 
-    def data_noise(self, df: pd.DataFrame, noise_level: float = 0.05) -> pd.DataFrame:
+    def data_noise(self, df: pd.DataFrame, noise_level: float = 0.2) -> pd.DataFrame:
         """
         增加高斯噪音、随机clip和mask
         df: pd.DataFrame, 输入数据
@@ -138,7 +138,7 @@ class DataLoader:
     def preprocess_data(self, df: pd.DataFrame,
                         missing_value_method: str = "impute",
                         low_card_method: str = "onehot",
-                        high_card_mehtod: str = "hashing",
+                        high_card_mehtod: str = "target",
                         if_standard: bool = True,
                         noise: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         '''
@@ -154,11 +154,15 @@ class DataLoader:
         return: Tuple[pd.DataFrame, pd.Series], 预处理后的数据和标签
         '''
 
+        # 清洗
+        df.columns = df.columns.str.replace('_', '.', regex=False)
+
         if missing_value_method == "drop":
             # 处理缺失值->直接删
             df.replace(' ?', pd.NA, inplace=True)
             df.dropna(inplace=True)
         elif missing_value_method == "impute":
+
             # 处理缺失值->插补，类别用众数，数值用中位数
             numeric_cols = ['age', 'fnlwgt', 'education-num',
                             'capital-gain', 'capital-loss', 'hours-per-week']
@@ -228,6 +232,7 @@ class DataLoader:
 
         if noise:
             X = self.data_noise(X, 0.01)
+
         return X, y
 
     def check_missing_values(self, df: pd.DataFrame):
@@ -271,8 +276,11 @@ class DataLoader:
 if __name__ == "__main__":
     data_loader = DataLoader()
     df = data_loader.load_data('raw')
-    # data_loader.check_missing_values(df)
+    data_loader.check_missing_values(df)
     df, y = data_loader.preprocess_data(df)
     df = data_loader.save_data(df, 'data/train_preprocessed.csv')
     print(df.head())
     print(y.head())
+    # 统计类别比例
+    print("类别比例统计：")
+    print(y.value_counts(normalize=True))
