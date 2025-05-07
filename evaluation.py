@@ -93,26 +93,26 @@ class Evaluation:
         print(f"Train Accuracy: {train_accuracy:.4f}")
         print(f"Test Accuracy: {test_accuracy:.4f}")
 
-        # # 绘制混淆矩阵
-        # self.plot_confusion_matrix(
-        #     y_train, y_train_pred, title='Train Confusion Matrix')
-        # self.plot_confusion_matrix(
-        #     y_test, y_test_pred, title='Test Confusion Matrix')
+        # 绘制混淆矩阵
+        self.plot_confusion_matrix(
+            y_train, y_train_pred, title='Train Confusion Matrix')
+        self.plot_confusion_matrix(
+            y_test, y_test_pred, title='Test Confusion Matrix')
 
-        # # 绘制ROC曲线
-        # if hasattr(model, "predict_proba"):
-        #     y_train_scores = model.predict_proba(x_train)[:, 1]
-        #     y_test_scores = model.predict_proba(x_test)[:, 1]
-        #     self.plot_roc_curve(y_train, y_train_scores,
-        #                         title='Train ROC Curve')
-        #     self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
-        # elif hasattr(model, "decision_function"):
-        #     y_train_scores = model.decision_function(x_train)
-        #     y_test_scores = model.decision_function(x_test)
-        #     self.plot_roc_curve(y_train, y_train_scores, title='Train ROC Curve')
-        #     self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
+        # 绘制ROC曲线
+        if hasattr(model, "predict_proba"):
+            y_train_scores = model.predict_proba(x_train)[:, 1]
+            y_test_scores = model.predict_proba(x_test)[:, 1]
+            self.plot_roc_curve(y_train, y_train_scores,
+                                title='Train ROC Curve')
+            self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
+        elif hasattr(model, "decision_function"):
+            y_train_scores = model.decision_function(x_train)
+            y_test_scores = model.decision_function(x_test)
+            self.plot_roc_curve(y_train, y_train_scores,
+                                title='Train ROC Curve')
+            self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
 
-
-        # # 打印分类报告
-        # self.classification_report(y_train, y_train_pred)
-        # self.classification_report(y_test, y_test_pred)
+        # 打印分类报告
+        self.classification_report(y_train, y_train_pred)
+        self.classification_report(y_test, y_test_pred)
