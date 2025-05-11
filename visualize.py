@@ -20,8 +20,8 @@ import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
 
 def visualize_tsne_2d(data, labels=None, title='t-SNE Visualization (2D)', 
-                     save_path=None, colormap='tab10', balance_classes=False,
-                     point_size=30, alpha=0.7, legend_loc='best'):
+                     save_path=None, colormap='tab20', balance_classes=False,
+                     point_size=30, alpha=0.5, legend_loc='best'):
     """
     优化后的2D t-SNE可视化函数，支持类别不平衡处理
     
@@ -48,9 +48,9 @@ def visualize_tsne_2d(data, labels=None, title='t-SNE Visualization (2D)',
         sorted_labels = unique_labels[np.argsort(-counts)]
         
         # 创建离散颜色映射
-        cmap = plt.get_cmap(colormap)
+        cmap = plt.get_cmap('Set1')  # 使用对比度更高的离散调色板
         colors = cmap(np.linspace(0, 1, len(unique_labels)))
-        
+
         # 分层绘制各个类别
         for idx, label in enumerate(sorted_labels):
             mask = labels == label
@@ -93,7 +93,7 @@ def _balance_classes(data, labels):
     return data[sampled_indices], labels[sampled_indices]
 
 
-def visualize_tsne_3d(data, labels=None, title='t-SNE Visualization (3D)', save_path=None, colormap='viridis'):
+def visualize_tsne_3d(data, labels=None, title='t-SNE Visualization (3D)', save_path=None, colormap='viridis', balance_classes=True):
     """
     Visualize high-dimensional data in 3D using t-SNE.
     
@@ -110,6 +110,9 @@ def visualize_tsne_3d(data, labels=None, title='t-SNE Visualization (3D)', save_
     colormap : str, optional
         Colormap to use for the scatter plot.
     """
+    if balance_classes and labels is not None:
+        data, labels = _balance_classes(data, labels)
+    
     # Apply t-SNE for dimensionality reduction to 3D
     tsne = TSNE(n_components=3, random_state=42, perplexity=30, max_iter=1200)
     embedded_data = tsne.fit_transform(data)
@@ -121,7 +124,7 @@ def visualize_tsne_3d(data, labels=None, title='t-SNE Visualization (3D)', save_
     if labels is not None:
         # If labels are provided, color points by labels
         scatter = ax.scatter(embedded_data[:, 0], embedded_data[:, 1], embedded_data[:, 2], 
-                  c=labels, cmap=colormap, alpha=0.6, s=20)
+                  c=labels, cmap='Set1', alpha=0.5, s=10)
         plt.colorbar(scatter, label='Class Labels')
     else:
         # If no labels, use a single color
@@ -189,11 +192,12 @@ if __name__ == "__main__":
     print(f"Loaded test data shape: {test_data.shape}")
     
     # Assuming the last column is the target/label
-    X_train = train_data.iloc[:, :-1].values
-    y_train = train_data.iloc[:, -1].values
+    X_train = train_data.iloc[:, :-7].values
+    y_train = train_data.iloc[:, 7].values
     
-    X_test = test_data.iloc[:, :-1].values
-    y_test = test_data.iloc[:, -1].values
+    X_test = test_data.iloc[:, :7].values
+    y_test = test_data.iloc[:, 7].values
+    '''
     
     print("\n--- Training Data Visualization ---")
     print("Visualizing training data in 2D...")
@@ -204,6 +208,7 @@ if __name__ == "__main__":
         save_path='./figures/tsne_train_2d.png',
         colormap='tab10'  # Using a discrete colormap better for categorical data
     )
+    '''
     
     print("\nVisualizing training data in 3D...")
     embedded_train_3d = visualize_tsne_3d(
@@ -214,5 +219,5 @@ if __name__ == "__main__":
         colormap='tab10'  # Using a discrete colormap better for categorical data
     )
     print("\n--- Analyzing Clusters in Training Data ---")
-    analyze_clusters(embedded_train_2d, y_train)
+    #analyze_clusters(embedded_train_2d, y_train)
     analyze_clusters(embedded_train_3d, y_train)
