@@ -14,51 +14,90 @@ from mpl_toolkits.mplot3d import Axes3D
 
 def visualize_tsne_2d(data, labels=None, title='t-SNE Visualization (2D)', 
                      save_path=None, colormap='tab20', balance_classes=False,
-                     point_size=30, alpha=0.5, legend_loc='best'):
+                     point_size=30, alpha=0.5, legend_loc='best',
+                     show_decision_boundary=False, boundary_alpha=0.2):
     """
-    优化后的2D t-SNE可视化函数，支持类别不平衡处理
+    Optimized 2D t-SNE visualization with smooth decision boundaries
     
-    Parameters新增:
-    balance_classes : bool, 是否进行类别平衡采样
-    point_size : int/array, 数据点大小
-    alpha : float, 透明度
-    legend_loc : str, 图例位置
+    Parameters:
+    balance_classes : bool, whether to perform class-balanced sampling
+    point_size : int/array, data point size
+    alpha : float, transparency for points
+    legend_loc : str, legend position
+    show_decision_boundary : bool, whether to plot smooth decision boundaries
+    boundary_alpha : float, transparency for decision boundary regions
     """
-    # 类别平衡处理
+    # Class balancing
     if balance_classes and labels is not None:
         data, labels = _balance_classes(data, labels)
 
-    # t-SNE降维
+    # t-SNE dimensionality reduction
     tsne = TSNE(n_components=2, random_state=42, perplexity=30, max_iter=1200)
     embedded_data = tsne.fit_transform(data)
     
-    # 创建画布
+    # Create figure
     plt.figure(figsize=(10, 8))
     
     if labels is not None:
-        # 按类别样本量倒序排列（先画多数类）
-        unique_labels, counts = np.unique(labels, return_counts=True)
-        sorted_labels = unique_labels[np.argsort(-counts)]
-        
-        # 创建离散颜色映射
-        cmap = plt.get_cmap('Set1')  # 使用对比度更高的离散调色板
+        # Get unique labels and sort by count
+        unique_labels = np.unique(labels)
+        if len(unique_labels) > 10:
+            print("Warning: Too many classes for effective visualization")
+            show_decision_boundary = False
+            
+        # Create colormap
+        cmap = plt.get_cmap('Set1')
         colors = cmap(np.linspace(0, 1, len(unique_labels)))
 
-        # 分层绘制各个类别
-        for idx, label in enumerate(sorted_labels):
+        # Plot decision boundaries first (so points appear on top)
+        if show_decision_boundary:
+            from sklearn.svm import SVC
+            from mlxtend.plotting import plot_decision_regions
+            
+            # Train a non-linear classifier (SVM with RBF kernel)
+            clf = SVC(kernel='rbf', gamma='auto', probability=True)
+            clf.fit(embedded_data, labels)
+            
+            # Create mesh grid for contour plot
+            x_min, x_max = embedded_data[:, 0].min() - 1, embedded_data[:, 0].max() + 1
+            y_min, y_max = embedded_data[:, 1].min() - 1, embedded_data[:, 1].max() + 1
+            xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200),
+                                 np.linspace(y_min, y_max, 200))
+            
+            # Get predicted probabilities
+            Z = clf.predict_proba(np.c_[xx.ravel(), yy.ravel()])
+            Z = Z[:, 1] if len(unique_labels) == 2 else np.argmax(Z, axis=1)
+            Z = Z.reshape(xx.shape)
+            
+            # Plot filled contours
+            if len(unique_labels) == 2:
+                plt.contourf(xx, yy, Z, levels=[0, 0.5, 1], 
+                            colors=[colors[0], colors[1]], alpha=boundary_alpha)
+                # Plot decision boundary line
+                plt.contour(xx, yy, Z, levels=[0.5], linewidths=2, 
+                           linestyles='dashed', colors='k')
+            else:
+                plt.contourf(xx, yy, Z, levels=len(unique_labels), 
+                            colors=colors, alpha=boundary_alpha)
+                # Plot decision boundary lines
+                plt.contour(xx, yy, Z, levels=len(unique_labels)-1, 
+                          linewidths=1, colors='k', linestyles='dashed')
+
+        # Plot each class's points
+        for idx, label in enumerate(unique_labels):
             mask = labels == label
             plt.scatter(embedded_data[mask, 0], embedded_data[mask, 1],
-                        c=[colors[idx]], label=str(label),
-                        s=point_size, alpha=alpha, edgecolors='w', linewidth=0.3)
+                       c=[colors[idx]], label=str(label),
+                       s=point_size, alpha=alpha, edgecolors='w', linewidth=0.3)
             
-        # 添加图例
+        # Add legend
         plt.legend(title='Class Labels', loc=legend_loc,
-                  frameon=True, framealpha=0.8)
+                 frameon=True, framealpha=0.8)
     else:
         plt.scatter(embedded_data[:, 0], embedded_data[:, 1],
                    s=point_size, alpha=alpha, edgecolors='w', linewidth=0.3)
     
-    # 添加标签和网格
+    # Add labels and grid
     plt.title(title, pad=20)
     plt.xlabel('t-SNE 1')
     plt.ylabel('t-SNE 2')
@@ -194,6 +233,11 @@ if __name__ == "__main__":
     
     print("\n--- Training Data Visualization ---")
     print("Visualizing training data in 2D...")
+    
+    visualize_tsne_2d(X_train, y_train, 
+                 title='t-SNE with Decision Boundaries',
+                 show_decision_boundary=True)
+    
     embedded_train_2d = visualize_tsne_2d(
         X_train, 
         y_train, 
