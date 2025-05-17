@@ -26,6 +26,7 @@ from sklearn.model_selection import RandomizedSearchCV
 import time
 
 
+
 class Classifier:
     def __init__(self, model, random_state=42):
         self.dataloader = DataLoader()
@@ -115,30 +116,30 @@ param_grid_xgb = {
 
 # 定义待测试的模型及标题
 models = [
-    # ("Logistic Regression", LogisticRegression(
-    #     max_iter=1000, random_state=42)),
-    # ("Decision Tree", DecisionTreeClassifier(
-    #     max_depth=6, random_state=42)),
-    # ("SVM", SVC(kernel='linear', random_state=42)),
+    ("Logistic Regression", LogisticRegression(
+        max_iter=1000, random_state=42)),
+    ("Decision Tree", DecisionTreeClassifier(
+        max_depth=6, random_state=42)),
+    ("SVM", SVC(kernel='linear', random_state=42)),
     # ("Random Forest", RandomForestClassifier(
     #     n_estimators=100, max_depth=6, random_state=42)),
-    ("XGBoost", XGBClassifier(
-        objective='binary:logistic',
-        eval_metric='logloss',
-        eta=0.1,
-        max_depth=6,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42
-    )),
+    # ("XGBoost", XGBClassifier(
+    #     objective='binary:logistic',
+    #     eval_metric='logloss',
+    #     eta=0.1,
+    #     max_depth=6,
+    #     subsample=0.8,
+    #     colsample_bytree=0.8,
+    #     random_state=42
+    # )),
     # ("KNN", KNeighborsClassifier(n_neighbors=5,metric='minkowski',p=2)),
-    ("MLP", MLPClassifier(
-        hidden_layer_sizes=(100,),  # 隐藏层大小（100 个神经元）
-        activation='relu',         # 激活函数（默认 relu）
-        solver='adam',             # 优化器（默认 adam）
-        max_iter=300,              # 最大迭代次数
-        random_state=42
-    )),
+    # ("MLP", MLPClassifier(
+    #     hidden_layer_sizes=(100,),  # 隐藏层大小（100 个神经元）
+    #     activation='relu',         # 激活函数（默认 relu）
+    #     solver='adam',             # 优化器（默认 adam）
+    #     max_iter=300,              # 最大迭代次数
+    #     random_state=42
+    # )),
     # ("LGBM", LGBMClassifier(
     #     objective='binary',
     #     metric='binary_logloss',
@@ -151,15 +152,15 @@ models = [
     #     class_weight='balanced',
     #     random_state=42
     # )),
-    ("CatBoost", CatBoostClassifier(
-        iterations=1000,
-        depth=6,
+    # ("CatBoost", CatBoostClassifier(
+    #     iterations=1000,
+    #     depth=6,
 
-        learning_rate=0.1,
-        loss_function='Logloss',
-        random_seed=42,
-        verbose=0
-    ))
+    #     learning_rate=0.1,
+    #     loss_function='Logloss',
+    #     random_seed=42,
+    #     verbose=0
+    # ))
 ]
 
 
@@ -167,7 +168,7 @@ def main_train_test():
     evaluation = Evaluation()
     # 使用第一个模型初始化 Classifier
     classifier = Classifier(model=models[0][1], random_state=42)
-    classifier.load_and_preprocess_data('raw/adult.data')
+    classifier.load_and_preprocess_data('raw')
 
     # 遍历模型列表，依次训练、评估
     for title, model in models:
@@ -209,7 +210,7 @@ def main_random_search():
     classifier.load_and_preprocess_data('raw/adult.data')
 
     # XGBoost
-    classifier.set_model(XGBClassifier(random_state=42))
+    classifier.set_model(PatchedXGBClassifier(random_state=42))
     best_model, best_param = classifier.random_search(param_grid_xgb, n_iter=3)
     classifier.set_model(best_model)
     classifier.train()
@@ -220,4 +221,4 @@ def main_random_search():
 
 if __name__ == "__main__":
     # main_train_test()
-    main_train_test()
+    main_random_search()

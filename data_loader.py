@@ -284,3 +284,5 @@ if __name__ == "__main__":
     # 统计类别比例
     print("类别比例统计：")
     print(y.value_counts(normalize=True))
+    print("y中含有NA值：", y.isna().any())
+    print("NA值数量：", y.isna().sum())

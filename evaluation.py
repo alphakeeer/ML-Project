@@ -24,14 +24,39 @@ class Evaluation:
 
     def plot_confusion_matrix(self, y_true, y_pred, title='Confusion Matrix'):
         """
-        绘制混淆矩阵
+        绘制混淆矩阵，同时显示每个单元格的计数及百分比，并调整字体大小
         """
+        import numpy as np
+        from sklearn.metrics import confusion_matrix
         cm = confusion_matrix(y_true, y_pred)
-        disp = ConfusionMatrixDisplay(cm)
-        disp.plot(cmap=plt.cm.Blues)
-        plt.title(title)
+        total = np.sum(cm)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        ax.figure.colorbar(im, ax=ax)
+        
+        # 设置坐标轴标签和刻度字体大小
+        ax.set(
+            xticks=np.arange(cm.shape[1]),
+            yticks=np.arange(cm.shape[0]),
+            xlabel='Predicted',
+            ylabel='True',
+            title=title
+        )
+        ax.tick_params(axis='both', labelsize=14)  # 调整刻度文字大小
+        
+        # 在每个格子上标注计数和百分比，并设置字体大小
+        thresh = cm.max() / 2.0
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                percentage = cm[i, j] / total
+                ax.text(j, i, f'{cm[i, j]}\n({percentage:.2%})',
+                        ha="center", va="center",
+                        color="white" if cm[i, j] > thresh else "black",
+                        fontsize=26)
+        
+        plt.tight_layout()
         plt.show()
-
+        
     def plot_decision_boundary(self, model, x, y, title):
         """
         绘制决策边界
@@ -98,21 +123,40 @@ class Evaluation:
             y_train, y_train_pred, title='Train Confusion Matrix')
         self.plot_confusion_matrix(
             y_test, y_test_pred, title='Test Confusion Matrix')
+        # 绘制总体混淆矩阵
+        self.plot_confusion_matrix(
+            np.concatenate((y_train, y_test)), np.concatenate((y_train_pred, y_test_pred)), title='Total Confusion Matrix')
 
-        # 绘制ROC曲线
-        if hasattr(model, "predict_proba"):
-            y_train_scores = model.predict_proba(x_train)[:, 1]
-            y_test_scores = model.predict_proba(x_test)[:, 1]
-            self.plot_roc_curve(y_train, y_train_scores,
-                                title='Train ROC Curve')
-            self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
-        elif hasattr(model, "decision_function"):
-            y_train_scores = model.decision_function(x_train)
-            y_test_scores = model.decision_function(x_test)
-            self.plot_roc_curve(y_train, y_train_scores,
-                                title='Train ROC Curve')
-            self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
+        # # 绘制ROC曲线
+        # if hasattr(model, "predict_proba"):
+        #     y_train_scores = model.predict_proba(x_train)[:, 1]
+        #     y_test_scores = model.predict_proba(x_test)[:, 1]
+        #     self.plot_roc_curve(y_train, y_train_scores,
+        #                         title='Train ROC Curve')
+        #     self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
+        #     # 绘制总体ROC曲线
+        #     y_total_scores = model.predict_proba(
+        #         np.concatenate((x_train, x_test)))[:, 1]
+        #     self.plot_roc_curve(np.concatenate((y_train, y_test)),
+        #                         y_total_scores, title='Total ROC Curve')
+        # elif hasattr(model, "decision_function"):
+        #     y_train_scores = model.decision_function(x_train)
+        #     y_test_scores = model.decision_function(x_test)
+        #     self.plot_roc_curve(y_train, y_train_scores,
+        #                         title='Train ROC Curve')
+        #     self.plot_roc_curve(y_test, y_test_scores, title='Test ROC Curve')
+        #     # 绘制总体ROC曲线
+        #     y_total_scores = model.decision_function(
+        #         np.concatenate((x_train, x_test)))
+        #     self.plot_roc_curve(np.concatenate((y_train, y_test)),
+        #                         y_total_scores, title='Total ROC Curve')
 
         # 打印分类报告
+        print("Classification Report:")
+        print("Train Set:")
         self.classification_report(y_train, y_train_pred)
+        print("Test Set:")
         self.classification_report(y_test, y_test_pred)
+        print("Total Set:")
+        self.classification_report(
+            np.concatenate((y_train, y_test)), np.concatenate((y_train_pred, y_test_pred)))
